@@ -79,9 +79,57 @@ if ticker:
         with col2:
             st.plotly_chart(sparkline_fig, use_container_width=True)
 
+        # Plot the closing price as a line chart with high and low annotations
         fig = px.line(data_filtered, x=data_filtered.index, y='Close', title='Closing Price Over Time')
-        fig.add_scatter(x=[data_filtered['High'].idxmax()], y=[max_high], mode='markers', name='High', marker=dict(color='red', size=10))
-        fig.add_scatter(x=[data_filtered['Low'].idxmin()], y=[min_low], mode='markers', name='Low', marker=dict(color='blue', size=10))
+
+        # Find the positions for the annotations
+        high_point = data_filtered['High'].idxmax()
+        low_point = data_filtered['Low'].idxmin()
+        max_high = data_filtered['High'].max()
+        min_low = data_filtered['Low'].min()
+
+        # Add annotations with arrows pointing to the max and min
+        fig.add_annotation(
+            x=high_point,
+            y=max_high,
+            text="Max High",
+            showarrow=True,
+            arrowhead=1,
+            arrowsize=2,
+            arrowwidth=2,
+            arrowcolor="#FF0000",
+            ax=0,
+            ay=-40
+        )
+        fig.add_annotation(
+            x=low_point,
+            y=min_low,
+            text="Min Low",
+            showarrow=True,
+            arrowhead=1,
+            arrowsize=2,
+            arrowwidth=2,
+            arrowcolor="#0000FF",
+            ax=0,
+            ay=40
+        )
+
+        # Ensure the entire chart is displayed
+        fig.update_layout(
+            xaxis_rangeslider_visible=False,
+            xaxis=dict(
+                rangeselector=dict(
+                    buttons=list([
+                        dict(count=1, label='1M', step='month', stepmode='backward'),
+                        dict(count=6, label='6M', step='month', stepmode='backward'),
+                        dict(count=1, label='YTD', step='year', stepmode='todate'),
+                        dict(count=1, label='1Y', step='year', stepmode='backward'),
+                        dict(step='all')
+                    ])
+                )
+            )
+        )
+
         st.plotly_chart(fig)
 
         with st.expander("See detailed data"):
