@@ -1,9 +1,15 @@
 import pandas as pd
 import streamlit as st
 from PIL import Image
+from io import BytesIO
+import requests
 import plotly.express as px
 import yfinance as yf
 import datetime
+from newsapi import NewsApiClient
+from textblob import TextBlob
+
+newsapi = NewsApiClient(api_key='51545828af3c49b49443fc10d317a5a6')
 
 st.title('Real-Time Stock Market Dashboard')
 st.sidebar.header('User Input')
@@ -20,13 +26,63 @@ def get_max_stock_data(ticker):
         return pd.DataFrame()
     return data
 
+# Function to fetch news
+def get_news(ticker):
+    all_articles = newsapi.get_everything(q=ticker,
+                                          language='en',
+                                          sort_by='relevancy')
+    return all_articles['articles']
+
+# Function to perform sentiment analysis
+def analyze_sentiment(headline):
+    analysis = TextBlob(headline)
+    return analysis.sentiment.polarity
+
+def get_sentiment_emoji(score):
+    if score > 0:
+        return '😊', 'Positive', 'green'  # Smiling face for positive sentiment
+    elif score < 0:
+        return '😠', 'Negative', 'red'  # Angry face for negative sentiment
+    else:
+        return '😐', 'Neutral', 'yellow'  # Straight face for neutral sentiment
+
 ticker = st.sidebar.text_input('Stock Ticker', 'AAPL')
 if ticker:
+
     data_max = get_max_stock_data(ticker)
     current_year = datetime.datetime.now().year
     start_of_year = datetime.datetime(current_year, 1, 1)
     start_date = st.sidebar.date_input('Start Date', start_of_year)
     end_date = st.sidebar.date_input('End Date', datetime.datetime.now())
+
+    st.sidebar.subheader('Latest News and Sentiment')
+    news_articles = get_news(ticker)
+
+    for article in news_articles[:5]:  # Display the top 5 news articles
+        sentiment_score = analyze_sentiment(article['title'])
+        emoji, sentiment, color = get_sentiment_emoji(sentiment_score)
+
+        # News article container
+        with st.container():
+            col1, col2 = st.sidebar.columns([3, 1])
+            with col1:
+                # Making title clickable but not look like a hyperlink
+                st.markdown(f'<a href="{article["url"]}" target="_blank" style="text-decoration: none; color: white;">{article["title"]}</a>', unsafe_allow_html=True)
+                if article['urlToImage']:
+                    try:
+                        response = requests.get(article['urlToImage'])
+                        response.raise_for_status()  # Will raise an HTTPError for bad status
+                        img = Image.open(BytesIO(response.content))
+                        st.image(img, width=100)
+                    except Exception:
+                        # If there's an error, skip the image but continue with the rest
+                        pass
+            with col2:
+                # Display sentiment emoji with hover text
+                 st.markdown(f'<div style="display: flex; align-items: center; justify-content: center; height: 100%;"><span title="{sentiment}" style="color: {color}; font-size: 20px;">{emoji}</span></div>', unsafe_allow_html=True)
+            
+            # Adding a border to the article container
+            st.sidebar.markdown("---")
 
     if not data_max.empty:
         data_filtered = data_max.loc[start_date:end_date]
@@ -92,7 +148,7 @@ if ticker:
         fig.add_annotation(
             x=high_point,
             y=max_high,
-            text="Max High",
+            text="High",
             showarrow=True,
             arrowhead=1,
             arrowsize=2,
@@ -104,7 +160,7 @@ if ticker:
         fig.add_annotation(
             x=low_point,
             y=min_low,
-            text="Min Low",
+            text="Low",
             showarrow=True,
             arrowhead=1,
             arrowsize=2,
